@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Погоня</title>
+<meta name="description" content="Уходи от погони, сноси копов, собирай монеты и выбивай новые машины">
+<meta name="theme-color" content="#1a1d33">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Погоня">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@500;700;800&display=swap">
+<style>
+:root{
+  --bg:#1a1d33; --panel:#23284a; --panel2:#2c3260; --ink:#ffffff; --mute:#aab1d6;
+  --acc:#ffb020; --acc2:#ff6a3d; --good:#4ade80; --bad:#ef4444;
+  --head:"Russo One",system-ui,sans-serif; --body:"Rubik",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--body);touch-action:none;overscroll-behavior:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hidden{display:none!important}
+button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-action:manipulation}
+.screen{position:fixed;inset:0;pointer-events:none}
+.screen > *{pointer-events:auto}
+
+/* ---------- кнопки ---------- */
+.big{font-family:var(--head);font-size:26px;letter-spacing:1px;padding:16px 28px;border-radius:18px;
+  background:linear-gradient(180deg,#ffc94a,#ff9a1f);color:#3a1d00;box-shadow:0 6px 0 #c46a00,0 10px 24px rgba(0,0,0,.35);
+  transition:transform .08s}
+.big:active{transform:translateY(4px);box-shadow:0 2px 0 #c46a00,0 4px 12px rgba(0,0,0,.35)}
+.big.locked{background:linear-gradient(180deg,#5b6290,#454b78);color:#d7dcff;box-shadow:0 6px 0 #2c3058}
+.sec{font-family:var(--head);font-size:17px;padding:12px 18px;border-radius:14px;background:var(--panel2);box-shadow:0 4px 0 #171a33;display:inline-flex;align-items:center;gap:8px}
+.sec:active{transform:translateY(3px);box-shadow:0 1px 0 #171a33}
+.sec.dim,.big.dim{opacity:.55}
+.coin{display:inline-block;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3a6,#ffc928 45%,#d18f00);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2);vertical-align:-3px}
+.pill{display:inline-flex;align-items:center;gap:7px;background:rgba(10,12,30,.55);padding:8px 13px;border-radius:999px;font-weight:800;font-size:17px;backdrop-filter:blur(6px)}
+
+/* ---------- гараж ---------- */
+#garage .top{position:absolute;top:calc(var(--st) + 12px);left:12px;right:12px;display:flex;align-items:center;gap:8px}
+#garage .top .sp{flex:1}
+.ico{width:42px;height:42px;border-radius:12px;background:rgba(10,12,30,.55);font-weight:800;font-size:16px;display:grid;place-items:center}
+.logo{position:absolute;top:calc(var(--st) + 64px);left:0;right:0;text-align:center;font-family:var(--head);font-size:44px;line-height:1;
+  color:var(--acc);text-shadow:0 4px 0 #b4560a,0 8px 22px rgba(255,140,0,.35);letter-spacing:2px;transform:rotate(-3deg)}
+.logo small{display:block;font-family:var(--body);font-weight:700;font-size:12px;color:var(--mute);letter-spacing:3px;text-shadow:none;margin-top:8px;transform:rotate(3deg)}
+#garage .arrow{position:absolute;top:40%;width:52px;height:64px;border-radius:16px;background:rgba(10,12,30,.5);font-size:28px;font-weight:800;display:grid;place-items:center}
+#g-prev{left:10px} #g-next{right:10px}
+#garage .card{position:absolute;left:0;right:0;bottom:0;padding:16px 18px calc(var(--sb) + 18px);
+  background:linear-gradient(180deg,rgba(26,29,51,0),rgba(26,29,51,.92) 22%,var(--bg));text-align:center}
+.nameRow{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap}
+#g-name{font-family:var(--head);font-size:30px}
+.rar{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;padding:4px 9px;border-radius:8px;color:#10121f}
+#g-desc{color:var(--mute);font-size:15px;margin:6px 0 4px;min-height:20px}
+#g-perk{display:inline-block;font-size:13px;font-weight:700;color:#ffe08a;background:rgba(255,176,32,.14);padding:4px 10px;border-radius:8px;margin-bottom:4px}
+.stats{max-width:360px;margin:10px auto 14px;display:grid;grid-template-columns:auto 1fr auto;gap:7px 10px;align-items:center;font-size:13px;font-weight:700;color:var(--mute);text-align:left}
+.bar{height:10px;border-radius:6px;background:#141730;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:6px;transition:width .3s}
+.stats .v{color:#fff;min-width:64px;text-align:right}
+.btnRow{display:flex;justify-content:center;gap:10px;align-items:center;flex-wrap:wrap}
+#g-dots{display:flex;justify-content:center;gap:4px;margin-top:14px;flex-wrap:wrap}
+#g-dots i{width:7px;height:7px;border-radius:50%;background:#3a4070}
+#g-dots i.own{background:#8a93c9}
+#g-dots i.cur{background:var(--acc);transform:scale(1.4)}
+.gtoast{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%) scale(.9);background:rgba(10,12,30,.85);padding:12px 18px;border-radius:14px;font-weight:700;opacity:0;transition:.2s;pointer-events:none!important}
+.gtoast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
+/* ---------- в заезде ---------- */
+#touch{position:fixed;inset:0;display:none}
+#hud .bar1{position:absolute;top:calc(var(--st) + 10px);left:10px;right:10px;display:flex;align-items:flex-start;gap:8px;pointer-events:none}
+#hud .bar1 > *{pointer-events:auto}
+.hpBox{width:120px;background:rgba(10,12,30,.55);border-radius:12px;padding:7px 9px}
+.hpBox b{font-size:11px;color:var(--mute);letter-spacing:1px}
+.hpBox .bar{height:9px;margin-top:4px}
+#h-hp{transition:width .15s}
+.mid{flex:1;text-align:center}
+#h-score{font-family:var(--head);font-size:40px;line-height:1;text-shadow:0 3px 0 rgba(0,0,0,.35)}
+#h-stars{font-size:21px;letter-spacing:1px;color:rgba(255,255,255,.28);text-shadow:0 2px 0 rgba(0,0,0,.3)}
+#h-stars .on{color:#ffd13b}
+.rightCol{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+#h-pause{width:42px;height:42px;border-radius:12px;background:rgba(10,12,30,.55);font-size:16px;font-weight:800}
+#toasts{position:absolute;top:calc(var(--st) + 110px);left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none!important}
+.toast{font-family:var(--head);font-size:20px;color:#fff;background:rgba(255,106,61,.9);padding:6px 14px;border-radius:12px;animation:pop 1.8s forwards}
+@keyframes pop{0%{transform:scale(.6);opacity:0}10%{transform:scale(1.08);opacity:1}18%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+#tut{position:absolute;bottom:calc(var(--sb) + 40px);left:0;right:0;display:flex;justify-content:space-between;padding:0 18px;pointer-events:none!important;animation:pulse 1s infinite alternate}
+#tut div{background:rgba(10,12,30,.7);padding:14px 16px;border-radius:16px;font-weight:800;font-size:16px;text-align:center}
+@keyframes pulse{to{opacity:.65}}
+
+/* ---------- окна ---------- */
+.modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(8,9,22,.6);backdrop-filter:blur(3px);padding:16px}
+.box{width:min(380px,100%);background:var(--panel);border-radius:24px;padding:22px 20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);border:2px solid #343a6e}
+.box h2{font-family:var(--head);font-size:38px;margin:0 0 4px;color:var(--acc2);text-shadow:0 3px 0 #8a2a10}
+.score{font-family:var(--head);font-size:64px;line-height:1.1}
+.rec{display:inline-block;background:var(--acc);color:#3a1d00;font-weight:800;padding:3px 10px;border-radius:8px;font-size:13px;letter-spacing:1px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+.grid div{background:var(--panel2);border-radius:14px;padding:9px 6px}
+.grid b{display:block;font-size:20px}
+.grid span{font-size:12px;color:var(--mute);font-weight:700}
+.col{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+
+/* ---------- барабан ---------- */
+#wheel .box{width:min(400px,100%);position:relative}
+.wheelWrap{position:relative;width:min(320px,78vw);aspect-ratio:1;margin:8px auto 14px}
+#w-canvas{width:100%;height:100%}
+.pointer{position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid #fff;filter:drop-shadow(0 3px 2px rgba(0,0,0,.5))}
+#w-result{position:absolute;inset:0;background:var(--panel);border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;animation:rise .4s}
+@keyframes rise{from{transform:scale(.8);opacity:0}}
+#w-result h3{font-family:var(--head);font-size:22px;color:var(--acc);margin:0}
+#w-res-name{font-family:var(--head);font-size:40px}
+#w-res-desc{color:var(--mute)}
+.wtoast{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(239,68,68,.95);padding:10px;border-radius:12px;font-weight:700;opacity:0;transition:.2s;pointer-events:none}
+.wtoast.show{opacity:1}
+.closeX{position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:12px;background:var(--panel2);font-weight:800}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="touch"></div>
+
+<!-- гараж -->
+<div id="garage" class="screen">
+  <div class="top">
+    <span class="pill"><span class="coin"></span><span id="g-coins">0</span></span>
+    <span class="pill" title="Рекорд">🏆 <span id="g-best">0</span></span>
+    <span class="sp"></span>
+    <button class="ico" id="g-hq" aria-label="Графика">HD</button>
+    <button class="ico" id="g-sound" aria-label="Звук">🔊</button>
+  </div>
+  <div class="logo">ПОГОНЯ<small>УЙДИ ОТ КОПОВ</small></div>
+  <button class="arrow" id="g-prev" aria-label="Назад">‹</button>
+  <button class="arrow" id="g-next" aria-label="Вперёд">›</button>
+  <div id="g-toast" class="gtoast"></div>
+  <div class="card">
+    <div class="nameRow"><span id="g-name">Копейка</span><span class="rar" id="g-rarity">Обычная</span></div>
+    <div id="g-desc"></div>
+    <div id="g-perk" class="hidden"></div>
+    <div class="stats">
+      <span>Скорость</span><div class="bar"><i id="b-spd" style="background:#ff6a3d"></i></div><span class="v" id="v-spd"></span>
+      <span>Управление</span><div class="bar"><i id="b-hnd" style="background:#3b9cff"></i></div><span class="v"></span>
+      <span>Прочность</span><div class="bar"><i id="b-arm" style="background:#4ade80"></i></div><span class="v" id="v-arm"></span>
+    </div>
+    <div class="btnRow">
+      <button class="big" id="g-play">ПОЕХАЛИ!</button>
+      <button class="sec" id="g-wheel">🎰 <span id="g-wheel-label">Барабан</span> · <span class="coin"></span>100</button>
+    </div>
+    <div id="g-dots"></div>
+    <div style="margin-top:8px;font-size:12px;color:var(--mute);font-weight:700">Машин открыто: <span id="g-count"></span></div>
+  </div>
+</div>
+
+<!-- заезд -->
+<div id="hud" class="screen hidden">
+  <div class="bar1">
+    <div class="hpBox"><b>ПРОЧНОСТЬ</b><div class="bar"><i id="h-hp" style="width:100%;background:#4ade80"></i></div></div>
+    <div class="mid"><div id="h-score">0</div><div id="h-stars"></div></div>
+    <div class="rightCol">
+      <button id="h-pause" aria-label="Пауза">❚❚</button>
+      <span class="pill"><span class="coin"></span><span id="h-coins">0</span></span>
+    </div>
+  </div>
+  <div id="toasts"></div>
+  <div id="tut" class="hidden"><div>◀ Жми слева<br><small>поворот влево</small></div><div>Обе — тормоз</div><div>Жми справа ▶<br><small>поворот вправо</small></div></div>
+</div>
+
+<!-- конец заезда -->
+<div id="over" class="screen modal hidden">
+  <div class="box">
+    <h2 id="o-title">Разбит!</h2>
+    <div class="score" id="o-score">0</div>
+    <div id="o-record" class="rec hidden">НОВЫЙ РЕКОРД!</div>
+    <div class="grid">
+      <div><b><span class="coin"></span> <span id="o-coins">0</span></b><span>монеты</span></div>
+      <div><b id="o-cops">0</b><span>копов разбито</span></div>
+      <div><b id="o-time">0:00</b><span>время</span></div>
+      <div><b id="o-best">0</b><span>рекорд</span></div>
+    </div>
+    <div class="col">
+      <button class="big" id="o-again">ЕЩЁ РАЗ</button>
+      <button class="sec" id="o-wheel" style="justify-content:center">🎰 Крутить барабан!</button>
+      <button class="sec" id="o-garage" style="justify-content:center">Гараж</button>
+    </div>
+  </div>
+</div>
+
+<!-- пауза -->
+<div id="pause" class="screen modal hidden">
+  <div class="box">
+    <h2 style="color:#fff;text-shadow:none">Пауза</h2>
+    <div class="col" style="margin-top:14px">
+      <button class="big" id="p-resume">ПРОДОЛЖИТЬ</button>
+      <button class="sec" id="p-quit" style="justify-content:center">В гараж</button>
+    </div>
+  </div>
+</div>
+
+<!-- барабан -->
+<div id="wheel" class="screen modal hidden">
+  <div class="box">
+    <button class="closeX" id="w-close" aria-label="Закрыть">✕</button>
+    <h2 style="font-size:30px;color:var(--acc);text-shadow:0 3px 0 #b4560a">Барабан</h2>
+    <div class="pill" style="margin-top:4px"><span class="coin"></span><span id="w-coins">0</span></div>
+    <div class="wheelWrap"><canvas id="w-canvas" width="640" height="640"></canvas><div class="pointer"></div></div>
+    <button class="big" id="w-spin">КРУТИТЬ · 100</button>
+    <div id="w-toast" class="wtoast"></div>
+    <div id="w-result" class="hidden">
+      <h3>НОВАЯ МАШИНА!</h3>
+      <div id="w-res-name"></div>
+      <span class="rar" id="w-res-rar"></span>
+      <div id="w-res-desc"></div>
+      <div class="col" style="width:100%;margin-top:10px">
+        <button class="big" id="w-ok">В ГАРАЖ</button>
+        <button class="sec" id="w-again" style="justify-content:center">Крутить ещё · <span class="coin"></span>100</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+const APP_VERSION = '1';
+import('./js/game.js?v=' + APP_VERSION).catch(e => { document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;display:grid;place-items:center;padding:20px;text-align:center;background:#1a1d33;color:#fff;font:16px sans-serif">Не удалось запустить игру 😕<br><small>' + e.message + '</small></div>'); });
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
+</script>
+</body>
+</html>

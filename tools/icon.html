@@ -1,0 +1,23 @@
+<!doctype html><html><body style="margin:0;background:transparent">
+<canvas id="c" width="1024" height="1024"></canvas>
+<script type="module">
+// Рендер иконки приложения: node tools/make_icons.js (через Playwright)
+import * as THREE from '../vendor/three.module.min.js';
+import { CARS, COPS, carGeometry } from '../js/cars.js';
+import { MAT } from '../js/vox.js';
+const pad = new URLSearchParams(location.search).get('pad') === '1';
+const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, preserveDrawingBuffer: true });
+const s = new THREE.Scene();
+const bg = document.createElement('canvas'); bg.width = bg.height = 512;
+const g = bg.getContext('2d'); const gr = g.createLinearGradient(0, 0, 0, 512);
+gr.addColorStop(0, '#ffc94a'); gr.addColorStop(1, '#ff6a3d'); g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
+s.background = new THREE.CanvasTexture(bg); s.background.colorSpace = THREE.SRGBColorSpace;
+s.add(new THREE.HemisphereLight(0xffffff, 0x886644, 1.8));
+const d = new THREE.DirectionalLight(0xffffff, 2.5); d.position.set(5, 10, 6); s.add(d);
+const car = new THREE.Mesh(carGeometry(CARS.find(x => x.id === 'taxi')), MAT.lambert); car.rotation.y = 1.9; car.position.set(1.6, 0, 1.4); s.add(car);
+const cop = new THREE.Mesh(carGeometry(COPS.cruiser), MAT.lambert); cop.rotation.y = 1.9; cop.position.set(-3.3, 0, -0.6); s.add(cop);
+for (const [x, y, z, col] of COPS.cruiser.lights) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.2, 0.3), new THREE.MeshBasicMaterial({ color: col })); l.position.set(x, y, z); cop.add(l); }
+const cam = new THREE.PerspectiveCamera(pad ? 44 : 34, 1, 0.1, 100);
+cam.position.set(6, 12, 13); cam.lookAt(-0.7, 0.4, 0.5);
+r.render(s, cam); document.title = 'done';
+</script></body></html>
