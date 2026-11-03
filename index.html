@@ -39,7 +39,8 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
 .sec{font-family:var(--head);font-size:17px;padding:12px 18px;border-radius:14px;background:var(--panel2);box-shadow:0 4px 0 #171a33;display:inline-flex;align-items:center;gap:8px}
 .sec:active{transform:translateY(3px);box-shadow:0 1px 0 #171a33}
 .sec.dim,.big.dim{opacity:.55}
-.coin{display:inline-block;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3a6,#ffc928 45%,#d18f00);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2);vertical-align:-3px}
+.coin{display:inline-grid;place-items:center;width:24px;height:15px;border-radius:3px;background:#3fae5c;box-shadow:inset 0 0 0 2px #6fcf87,0 1px 0 #1d5e30;vertical-align:-2px}
+.coin::after{content:"$";font:800 11px/1 var(--body);color:#123d20}
 .pill{display:inline-flex;align-items:center;gap:7px;background:rgba(10,12,30,.55);padding:8px 13px;border-radius:999px;font-weight:800;font-size:17px;backdrop-filter:blur(6px)}
 
 /* ---------- гараж ---------- */
@@ -57,7 +58,18 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
 #g-name{font-family:var(--head);font-size:30px}
 .rar{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;padding:4px 9px;border-radius:8px;color:#10121f}
 #g-desc{color:var(--mute);font-size:15px;margin:6px 0 4px;min-height:20px}
-#g-perk{display:inline-block;font-size:13px;font-weight:700;color:#ffe08a;background:rgba(255,176,32,.14);padding:4px 10px;border-radius:8px;margin-bottom:4px}
+#g-ability{display:inline-block;font-size:14px;font-weight:700;color:#ffe08a;background:rgba(255,176,32,.16);padding:5px 12px;border-radius:10px;margin-top:8px}
+.catBox{width:min(520px,100%);max-height:calc(100vh - 40px);display:flex;flex-direction:column;position:relative}
+#cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));grid-auto-rows:100px;align-content:start;flex:1 1 auto;min-height:0;gap:8px;overflow-y:auto;padding:4px 2px 6px;margin-top:10px;touch-action:pan-y}
+.cell{position:relative;height:100px;border-radius:14px;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--rc) 55%,#2c3260),#1f2344 75%);box-shadow:inset 0 0 0 2px var(--rc);overflow:hidden;padding:0}
+.cell img{width:100%;height:100%;object-fit:contain;display:block}
+.cell span{position:absolute;left:0;right:0;bottom:4px;font-size:11px;font-weight:800;text-shadow:0 1px 2px #000}
+.cell.lock{filter:saturate(.7)}
+.cell.lock::after{content:"?";position:absolute;inset:0;display:grid;place-items:center;font:800 30px var(--head);color:rgba(255,255,255,.55)}
+.cell.sel{box-shadow:inset 0 0 0 3px #fff,0 0 0 2px var(--rc)}
+.cell.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+#w-res-img canvas{width:150px;height:150px}
 .stats{max-width:360px;margin:10px auto 14px;display:grid;grid-template-columns:auto 1fr auto;gap:7px 10px;align-items:center;font-size:13px;font-weight:700;color:var(--mute);text-align:left}
 .bar{height:10px;border-radius:6px;background:#141730;overflow:hidden}
 .bar i{display:block;height:100%;border-radius:6px;transition:width .3s}
@@ -76,7 +88,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
 #hud .bar1 > *{pointer-events:auto}
 .hpBox{width:120px;background:rgba(10,12,30,.55);border-radius:12px;padding:7px 9px}
 .hpBox b{font-size:11px;color:var(--mute);letter-spacing:1px}
-.hpBox .bar{height:9px;margin-top:4px}
+.hpBox .bar{height:10px}
 #h-hp{transition:width .15s}
 .mid{flex:1;text-align:center}
 #h-score{font-family:var(--head);font-size:40px;line-height:1;text-shadow:0 3px 0 rgba(0,0,0,.35)}
@@ -131,32 +143,34 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
     <button class="ico" id="g-hq" aria-label="Графика">HD</button>
     <button class="ico" id="g-sound" aria-label="Звук">🔊</button>
   </div>
-  <div class="logo">ПОГОНЯ<small>УЙДИ ОТ КОПОВ</small></div>
+  <div class="logo">ПОГОНЯ</div>
   <button class="arrow" id="g-prev" aria-label="Назад">‹</button>
   <button class="arrow" id="g-next" aria-label="Вперёд">›</button>
   <div id="g-toast" class="gtoast"></div>
   <div class="card">
-    <div class="nameRow"><span id="g-name">Копейка</span><span class="rar" id="g-rarity">Обычная</span></div>
-    <div id="g-desc"></div>
-    <div id="g-perk" class="hidden"></div>
-    <div class="stats">
-      <span>Скорость</span><div class="bar"><i id="b-spd" style="background:#ff6a3d"></i></div><span class="v" id="v-spd"></span>
-      <span>Управление</span><div class="bar"><i id="b-hnd" style="background:#3b9cff"></i></div><span class="v"></span>
-      <span>Прочность</span><div class="bar"><i id="b-arm" style="background:#4ade80"></i></div><span class="v" id="v-arm"></span>
+    <div class="nameRow"><span id="g-name">Копейка</span><span class="rar" id="g-rarity"></span></div>
+    <div id="g-ability" class="hidden"></div>
+    <div class="btnRow" style="margin-top:14px"><button class="big" id="g-play">ПОЕХАЛИ!</button></div>
+    <div class="btnRow" style="margin-top:12px">
+      <button class="sec" id="g-cat">▦ <span id="g-count"></span></button>
+      <button class="sec" id="g-wheel">🎰 <span class="coin"></span>100</button>
     </div>
-    <div class="btnRow">
-      <button class="big" id="g-play">ПОЕХАЛИ!</button>
-      <button class="sec" id="g-wheel">🎰 <span id="g-wheel-label">Барабан</span> · <span class="coin"></span>100</button>
-    </div>
-    <div id="g-dots"></div>
-    <div style="margin-top:8px;font-size:12px;color:var(--mute);font-weight:700">Машин открыто: <span id="g-count"></span></div>
+  </div>
+</div>
+
+<!-- каталог -->
+<div id="catalog" class="screen modal hidden">
+  <div class="box catBox">
+    <button class="closeX" id="cat-close" aria-label="Закрыть">✕</button>
+    <h2 style="font-size:26px;color:var(--acc);text-shadow:0 3px 0 #b4560a">▦ <span id="cat-count"></span></h2>
+    <div id="cat-grid"></div>
   </div>
 </div>
 
 <!-- заезд -->
 <div id="hud" class="screen hidden">
   <div class="bar1">
-    <div class="hpBox"><b>ПРОЧНОСТЬ</b><div class="bar"><i id="h-hp" style="width:100%;background:#4ade80"></i></div></div>
+    <div class="hpBox"><div class="bar"><i id="h-hp" style="width:100%;background:#4ade80"></i></div></div>
     <div class="mid"><div id="h-score">0</div><div id="h-stars"></div></div>
     <div class="rightCol">
       <button id="h-pause" aria-label="Пауза">❚❚</button>
@@ -164,7 +178,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
     </div>
   </div>
   <div id="toasts"></div>
-  <div id="tut" class="hidden"><div>◀ Жми слева<br><small>поворот влево</small></div><div>Обе — тормоз</div><div>Жми справа ▶<br><small>поворот вправо</small></div></div>
+  <div id="tut" class="hidden"><div>◀</div><div>◀ ▶ = тормоз</div><div>▶</div></div>
 </div>
 
 <!-- конец заезда -->
@@ -174,14 +188,14 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
     <div class="score" id="o-score">0</div>
     <div id="o-record" class="rec hidden">НОВЫЙ РЕКОРД!</div>
     <div class="grid">
-      <div><b><span class="coin"></span> <span id="o-coins">0</span></b><span>монеты</span></div>
+      <div><b><span class="coin"></span> <span id="o-coins">0</span></b><span>деньги</span></div>
       <div><b id="o-cops">0</b><span>копов разбито</span></div>
       <div><b id="o-time">0:00</b><span>время</span></div>
       <div><b id="o-best">0</b><span>рекорд</span></div>
     </div>
     <div class="col">
       <button class="big" id="o-again">ЕЩЁ РАЗ</button>
-      <button class="sec" id="o-wheel" style="justify-content:center">🎰 Крутить барабан!</button>
+      <button class="sec" id="o-wheel" style="justify-content:center">🎰 <span class="coin"></span>100</button>
       <button class="sec" id="o-garage" style="justify-content:center">Гараж</button>
     </div>
   </div>
@@ -202,26 +216,26 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
 <div id="wheel" class="screen modal hidden">
   <div class="box">
     <button class="closeX" id="w-close" aria-label="Закрыть">✕</button>
-    <h2 style="font-size:30px;color:var(--acc);text-shadow:0 3px 0 #b4560a">Барабан</h2>
+    
     <div class="pill" style="margin-top:4px"><span class="coin"></span><span id="w-coins">0</span></div>
     <div class="wheelWrap"><canvas id="w-canvas" width="640" height="640"></canvas><div class="pointer"></div></div>
-    <button class="big" id="w-spin">КРУТИТЬ · 100</button>
+    <button class="big" id="w-spin">🎰 <span class="coin"></span>100</button>
     <div id="w-toast" class="wtoast"></div>
     <div id="w-result" class="hidden">
-      <h3>НОВАЯ МАШИНА!</h3>
+      <div id="w-res-img"></div>
       <div id="w-res-name"></div>
       <span class="rar" id="w-res-rar"></span>
       <div id="w-res-desc"></div>
       <div class="col" style="width:100%;margin-top:10px">
-        <button class="big" id="w-ok">В ГАРАЖ</button>
-        <button class="sec" id="w-again" style="justify-content:center">Крутить ещё · <span class="coin"></span>100</button>
+        <button class="big" id="w-ok">OK</button>
+        <button class="sec" id="w-again" style="justify-content:center">🎰 <span class="coin"></span>100</button>
       </div>
     </div>
   </div>
 </div>
 
 <script type="module">
-const APP_VERSION = '1';
+const APP_VERSION = '2';
 import('./js/game.js?v=' + APP_VERSION).catch(e => { document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;display:grid;place-items:center;padding:20px;text-align:center;background:#1a1d33;color:#fff;font:16px sans-serif">Не удалось запустить игру 😕<br><small>' + e.message + '</small></div>'); });
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
 </script>

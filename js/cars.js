@@ -7,6 +7,7 @@ const DARK = 0x1d232b, GLASS = 0x26384a, TIRE = 0x1a1a1a, RIM = 0x9aa3ad, CHROME
   HEAD = 0xfff4c2, TAIL = 0xd2242a;
 
 function wheel(v, x, z, r = 0.42, w = 0.38, rim = RIM) {
+  v.wz.push(z);
   v.box(x, 0, z, w, r * 2, r * 2, TIRE);
   v.box(x + Math.sign(x) * (w / 2 + 0.01), r * 0.55, z, 0.04, r * 0.9, r * 0.9, rim);
 }
@@ -309,7 +310,86 @@ export const CARS = [
     },
   },
   {
-    id: 'rocket', name: 'Ракета', rarity: 'legend', desc: 'Реактивная тяга. Быстрее всех!', perk: 'jet',
+    id: 'quad', name: 'Квадрик', rarity: 'common',
+    spd: 23, acc: 22, turn: 3.4, grip: 5, hp: 70, len: 2.2, wid: 1.4,
+    build(v) {
+      const C = 0xe53935;
+      v.box(0, 0.45, 0, 0.9, 0.35, 1.9, DARK);
+      v.box(0, 0.7, 0.65, 1.2, 0.25, 0.7, C, { top: 0xff5a52 }); v.box(0, 0.7, -0.6, 1.2, 0.25, 0.7, C, { top: 0xff5a52 });
+      v.box(0, 0.8, -0.05, 0.6, 0.25, 0.8, 0x222222);
+      v.box(0, 1.05, 0.5, 1.0, 0.08, 0.08, 0x444444); v.box(0, 0.8, 0.5, 0.1, 0.3, 0.1, 0x444444);
+      v.box(0, 1.05, -0.05, 0.45, 0.55, 0.4, 0x1e63c8); v.box(0, 1.6, 0.0, 0.42, 0.42, 0.42, 0xffeb3b); v.box(0, 1.65, 0.2, 0.34, 0.14, 0.04, 0x111111);
+      v.box(0, 0.75, 1.02, 0.5, 0.16, 0.06, HEAD);
+      wheels4(v, 0.65, 0.68, -0.68, 0.42, 0.42);
+    },
+  },
+  {
+    id: 'golf', name: 'Гольф-кар', rarity: 'common',
+    spd: 17, acc: 16, turn: 3.2, grip: 6, hp: 80, len: 2.8, wid: 1.5,
+    build(v) {
+      const W = 0xf5f5f0;
+      v.box(0, 0.25, 0, 1.4, 0.4, 2.6, W, { top: 0xffffff });
+      v.box(0, 0.65, 0.9, 1.3, 0.35, 0.7, W);
+      v.box(0, 0.65, -0.3, 1.2, 0.3, 0.8, 0x2e7d32); v.box(0, 0.95, -0.7, 1.2, 0.5, 0.15, 0x2e7d32);
+      for (const [x, z] of [[0.62, 0.55], [-0.62, 0.55], [0.62, -1.15], [-0.62, -1.15]]) v.box(x, 0.65, z, 0.06, 1.3, 0.06, 0x9e9e9e);
+      v.box(0, 1.95, -0.3, 1.5, 0.1, 2.0, 0x2e7d32, { top: 0x43a047 });
+      v.box(0, 0.65, -1.2, 0.6, 0.5, 0.3, 0x5d4037); v.box(0.15, 1.15, -1.2, 0.06, 0.7, 0.06, 0xbdbdbd); v.box(-0.12, 1.1, -1.2, 0.06, 0.6, 0.06, 0xbdbdbd);
+      wheels4(v, 0.68, 0.9, -0.9, 0.3, 0.26);
+    },
+  },
+  {
+    id: 'cabrio', name: 'Кабрио', rarity: 'rare',
+    spd: 27, acc: 19, turn: 2.9, grip: 6.5, hp: 100, len: 4.2, wid: 1.9,
+    build(v) {
+      const C = 0xff7043;
+      v.box(0, 0.3, 0, 1.9, 0.6, 4.2, C, { top: 0xff8a65 });
+      v.box(0, 0.9, 0.55, 1.7, 0.4, 0.06, GLASS);
+      v.box(0.45, 0.9, -0.2, 0.6, 0.15, 0.6, 0xf5e6c8); v.box(-0.45, 0.9, -0.2, 0.6, 0.15, 0.6, 0xf5e6c8);
+      v.box(0.45, 1.05, -0.5, 0.6, 0.5, 0.12, 0xf5e6c8); v.box(-0.45, 1.05, -0.5, 0.6, 0.5, 0.12, 0xf5e6c8);
+      v.box(0, 0.9, -1.3, 1.6, 0.15, 1.0, 0xe64a19);
+      v.box(-0.45, 1.05, 0.25, 0.4, 0.06, 0.06, DARK);
+      v.box(0, 0.25, 2.13, 1.9, 0.2, 0.08, CHROME); v.box(0, 0.25, -2.13, 1.9, 0.2, 0.08, CHROME);
+      lights(v, 0.62, 2.12, -2.12, 0.62);
+      wheels4(v, 0.85, 1.35, -1.35, 0.4, 0.36);
+    },
+  },
+  {
+    id: 'garbage', name: 'Мусоровоз', rarity: 'rare', perk: 'heavy',
+    spd: 19, acc: 10, turn: 2.3, grip: 5.5, hp: 260, len: 6.2, wid: 2.4,
+    build(v) {
+      const G = 0x2e7d32;
+      v.box(0, 0.35, 2.2, 2.3, 1.7, 1.8, 0xf5f5f5, { top: 0xffffff });
+      v.box(0, 1.3, 3.11, 2.0, 0.6, 0.06, GLASS);
+      v.box(0, 0.35, -0.9, 2.4, 2.4, 4.4, G, { top: 0x388e3c });
+      for (let i = 0; i < 4; i++) { v.box(1.21, 0.8 + i * 0.45, -0.9, 0.04, 0.12, 4.2, 0x1b5e20); v.box(-1.21, 0.8 + i * 0.45, -0.9, 0.04, 0.12, 4.2, 0x1b5e20); }
+      v.box(0, 0.6, -3.15, 2.2, 1.8, 0.2, 0x616161);
+      v.box(0.8, 2.75, 1.6, 0.4, 0.18, 0.3, 0xffab00);
+      v.box(0, 0.3, 3.15, 2.4, 0.3, 0.12, DARK);
+      lights(v, 0.85, 3.16, -3.27, 0.65);
+      wheels4(v, 1.1, 2.2, -1.9, 0.52, 0.45); wheel(v, 1.1, -0.7, 0.52, 0.45); wheel(v, -1.1, -0.7, 0.52, 0.45);
+    },
+  },
+  {
+    id: 'muscle', name: 'Маслкар', rarity: 'epic',
+    spd: 31, acc: 25, turn: 2.8, grip: 5.5, hp: 130, len: 4.6, wid: 2.0,
+    build(v) {
+      const B = 0x161616, W = 0xf5f5f5;
+      v.box(0, 0.3, 0, 2.0, 0.65, 4.6, B, { top: 0x262626 });
+      v.box(0, 0.95, -0.5, 1.75, 0.5, 1.8, B);
+      v.box(0, 0.98, 0.42, 1.55, 0.42, 0.06, GLASS); v.box(0, 0.98, -1.42, 1.55, 0.38, 0.06, GLASS);
+      v.box(0.89, 1.0, -0.5, 0.04, 0.36, 1.5, GLASS); v.box(-0.89, 1.0, -0.5, 0.04, 0.36, 1.5, GLASS);
+      v.box(0.3, 0.955, 0, 0.25, 0.02, 4.6, W); v.box(-0.3, 0.955, 0, 0.25, 0.02, 4.6, W);
+      v.box(0.3, 1.455, -0.5, 0.25, 0.02, 1.8, W); v.box(-0.3, 1.455, -0.5, 0.25, 0.02, 1.8, W);
+      v.box(0, 0.95, 1.3, 0.6, 0.25, 0.9, 0x333333);
+      v.box(0, 1.0, -2.2, 1.8, 0.08, 0.3, B);
+      v.box(0, 0.25, 2.33, 2.0, 0.2, 0.08, CHROME); v.box(0.4, 0.25, -2.35, 0.3, 0.15, 0.2, CHROME); v.box(-0.4, 0.25, -2.35, 0.3, 0.15, 0.2, CHROME);
+      lights(v, 0.7, 2.32, -2.32, 0.65);
+      wheel(v, 0.92, 1.45, 0.42, 0.4); wheel(v, -0.92, 1.45, 0.42, 0.4);
+      wheel(v, 0.92, -1.4, 0.5, 0.55); wheel(v, -0.92, -1.4, 0.5, 0.55);
+    },
+  },
+  {
+    id: 'rocket', name: 'Ракета', rarity: 'legend', desc: 'Реактивная тяга. Быстрее всех!', perk: 'jet', ability: 'Огненный след сжигает копов',
     spd: 40, acc: 32, turn: 2.6, grip: 5, hp: 90, mass: 1.0, len: 5.0, wid: 2.0,
     build(v) {
       const P = 0x6d28d9, W = 0xf1f5f9;
@@ -324,7 +404,7 @@ export const CARS = [
     },
   },
   {
-    id: 'tank', name: 'Танк', rarity: 'legend', desc: 'Почти неубиваемый. Копы отлетают.', perk: 'heavy',
+    id: 'tank', name: 'Танк', rarity: 'legend', desc: 'Почти неубиваемый. Копы отлетают.', perk: 'cannon', dense: 2.4, ability: 'Сам стреляет по копам',
     spd: 18, acc: 11, turn: 2.6, grip: 9, hp: 500, mass: 5.0, len: 5.2, wid: 2.9,
     build(v) {
       const O = 0x56652d, D = 0x3f4a20;
@@ -339,7 +419,7 @@ export const CARS = [
     },
   },
   {
-    id: 'ufo', name: 'НЛО', rarity: 'legend', desc: 'Парит над землёй и над водой. Скользкий!', perk: 'float',
+    id: 'ufo', name: 'НЛО', rarity: 'legend', desc: 'Парит над землёй и над водой. Скользкий!', perk: 'float', emp: true, ability: 'Волна глушит копов, летает над водой',
     spd: 31, acc: 24, turn: 3.5, grip: 2.4, hp: 140, mass: 1.2, len: 3.6, wid: 3.6, hover: 0.7,
     build(v) {
       const S = 0xc7d0d9, D = 0x8796a5;
@@ -356,6 +436,23 @@ export const CARS = [
       const cols = [0xff1744, 0xffea00, 0x00e676, 0x2979ff];
       for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; v.box(Math.sin(a) * 1.65, 0.3, Math.cos(a) * 1.65, 0.2, 0.15, 0.2, cols[i % 4]); }
       v.setTransform(0, 0, 0);
+    },
+  },
+  {
+    id: 'roller', name: 'Каток', rarity: 'legend', perk: 'crush', dense: 1.7, ability: 'Копы плющатся от одного касания',
+    spd: 19, acc: 12, turn: 2.5, grip: 8, hp: 450, len: 5.0, wid: 2.6,
+    build(v) {
+      const Y = 0xffc107;
+      v.box(0, 0, 1.6, 2.6, 1.5, 1.5, 0x8d8d8d, { top: 0xa5a5a5 });
+      v.box(1.33, 0.3, 1.6, 0.06, 0.9, 0.9, Y); v.box(-1.33, 0.3, 1.6, 0.06, 0.9, 0.9, Y);
+      v.box(0, 1.5, 1.6, 2.7, 0.2, 1.7, Y);
+      v.box(0, 0.5, -0.7, 2.0, 1.0, 3.0, Y, { top: 0xffd54f });
+      v.box(0, 1.5, -1.0, 1.6, 1.3, 1.5, GLASS); v.box(0, 2.8, -1.0, 1.9, 0.15, 1.9, Y);
+      for (const [x, z] of [[0.78, -0.3], [-0.78, -0.3], [0.78, -1.7], [-0.78, -1.7]]) v.box(x, 1.5, z, 0.08, 1.3, 0.08, Y);
+      v.box(0.6, 3.0, -0.4, 0.35, 0.2, 0.3, 0xff6d00);
+      v.box(-0.5, 1.5, 0.2, 0.15, 1.2, 0.15, DARK);
+      wheel(v, 1.05, -1.7, 0.62, 0.55); wheel(v, -1.05, -1.7, 0.62, 0.55);
+      v.wz.push(1.6);
     },
   },
 ];
@@ -424,15 +521,19 @@ export const RARITY = {
 };
 
 const geoCache = new Map();
+// Геометрия + «физика из модели»: масса = объём кубиков, поворот = колёсная база.
 export function carGeometry(def) {
-  if (!geoCache.has(def)) { const v = new Vox(); def.build(v); geoCache.set(def, v.geometry()); }
+  if (!geoCache.has(def)) {
+    const v = new Vox(); def.build(v);
+    geoCache.set(def, v.geometry());
+    const wb = v.wz.length >= 2 ? Math.max(...v.wz) - Math.min(...v.wz) : def.len * 0.6;
+    def.wb = wb;
+    def.mass = Math.min(6, Math.max(0.45, v.vol / 7 * (def.dense || 1)));
+    if (!def.hover) {
+      def.turn = Math.min(4.0, Math.max(1.45, 9.6 / (wb + 1.3)));
+      def.grip = def.grip * Math.min(1.1, Math.max(0.6, wb / 2.6));
+    }
+    def.acc = def.acc * Math.min(1.25, Math.max(0.7, Math.pow(1 / def.mass, 0.25)));
+  }
   return geoCache.get(def);
-}
-
-export function carRating(def) {
-  return {
-    speed: Math.min(1, (def.spd - 12) / 28),
-    handling: Math.min(1, Math.max(0.05, ((def.turn - 2.0) / 2.0) * 0.55 + (def.grip / 9) * 0.45)),
-    armor: Math.min(1, Math.pow(def.hp / 500, 0.6)),
-  };
 }

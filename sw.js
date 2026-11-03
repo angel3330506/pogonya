@@ -1,5 +1,5 @@
 // Офлайн-кэш: страница, скрипты, иконки и шрифты кэшируются при установке.
-const V = '1';                 // = APP_VERSION в index.html
+const V = '2';                 // = APP_VERSION в index.html
 const VERSION = 'pogonya-v' + V;
 const SHELL = [
   './',

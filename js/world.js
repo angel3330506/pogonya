@@ -40,8 +40,8 @@ const GROUND = {
 };
 const GKIND = { city: 'side', suburb: 'grass', forest: 'grass', desert: 'sand', snow: 'snow' };
 export const SURF = {
-  road: { spd: 1, grip: 1 }, side: { spd: 1, grip: 1 }, grass: { spd: 0.95, grip: 0.95 },
-  sand: { spd: 0.86, grip: 0.8 }, snow: { spd: 0.92, grip: 0.7 }, ice: { spd: 1, grip: 0.18 },
+  road: { spd: 1, grip: 1 }, side: { spd: 0.97, grip: 1 }, grass: { spd: 0.8, grip: 0.85 }, gold: { spd: 1, grip: 1 },
+  sand: { spd: 0.7, grip: 0.75 }, snow: { spd: 0.78, grip: 0.65 }, ice: { spd: 1, grip: 0.18 },
   water: { spd: 0.72, grip: 0.5, water: true },
 };
 
@@ -131,6 +131,7 @@ function rock(v, x, z, R, c = 0x9e9e9e) {
   return { b: 1, x0: x - w / 2, x1: x + w / 2, z0: z - l / 2, z1: z + l / 2 };
 }
 
+const BEAM_MAT = new THREE.MeshBasicMaterial({ color: 0xffe27a, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide });
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1), _up = new THREE.Vector3(0, 1, 0);
 
 export class World {
@@ -165,6 +166,7 @@ export class World {
 
   unload(b) {
     this.scene.remove(b.ground); this.scene.remove(b.stat);
+    for (const m of b.extra || []) { this.scene.remove(m); m.geometry.dispose(); }
     b.ground.geometry.dispose(); b.stat.geometry.dispose();
     for (const p of b.props) if (p.slot >= 0) this.pools[p.type].release(p.slot);
     this.blocks.delete(b.k);
@@ -189,6 +191,8 @@ export class World {
       groundY: () => biome === 'city' ? 0.12 : 0.04,
     };
     const city = biome === 'city';
+    // редкое «денежное место»: золотая площадка с кучей купюр и столбом света
+    const bonus = Math.abs(bx) + Math.abs(bz) > 1 && hash(bx, bz, 99) < 0.08;
 
     // дороги
     const asph = biome === 'desert' ? 0x6b6258 : 0x3e4249;
@@ -207,7 +211,7 @@ export class World {
     }
 
     // особая местность: озеро (лес), лёд (снега)
-    if ((biome === 'forest' && R() < 0.5) || (biome === 'snow' && R() < 0.45)) {
+    if (!bonus && ((biome === 'forest' && R() < 0.5) || (biome === 'snow' && R() < 0.45))) {
       const w = 2 + Math.floor(R() * 2), h = 2 + Math.floor(R() * 2);
       const ox = Math.floor(R() * (5 - w + 1)), oz = Math.floor(R() * (5 - h + 1));
       const kind = biome === 'forest' ? 'water' : 'ice';
@@ -256,8 +260,22 @@ export class World {
       }
     };
     v.setTransform(0, gy, 0);
+    b.extra = [];
+    if (bonus) {
+      const cx = IX + S / 2, cz = IZ + S / 2;
+      v.box(cx, 0, cz, 17, 0.12, 17, 0xe0a91f, { top: 0xffd24a });
+      v.box(cx, 0.12, cz, 13, 0.06, 13, 0xffe27a);
+      for (const [dx, dz] of [[-8, -8], [8, -8], [-8, 8], [8, 8]]) v.box(cx + dx, 0, cz + dz, 0.6, 1.6, 0.6, 0xffc107, { top: 0xfff3b0 });
+      placed.push({ x: cx, z: cz, r: 12 });
+      b.bonus = { x: cx, z: cz };
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 60, 16, 1, true), BEAM_MAT);
+      beam.position.set(cx, 30, cz); this.scene.add(beam); b.extra.push(beam);
+    }
 
-    if (city) {
+    if (city && bonus) {
+      for (let i = 0; i < 4; i++) { this.addProp(b, 'lamp', IX + 1.2, IZ + 6 + i * 15, -Math.PI / 2); this.addProp(b, 'lamp', IX + 6 + i * 15, IZ + 1.2, Math.PI); }
+      scatter(6, 2, (x, z) => { b.solids.push({ x, z, r: tree(v, x, z, R) + 0.1 }); });
+    } else if (city) {
       // фонари и прочее по краю тротуара
       for (let i = 0; i < 4; i++) {
         this.addProp(b, 'lamp', IX + 1.2, IZ + 6 + i * 15, -Math.PI / 2);

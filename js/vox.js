@@ -7,7 +7,7 @@ const tmpColor = new THREE.Color();
 export class Vox {
   constructor() {
     this.pos = []; this.nor = []; this.col = []; this.idx = [];
-    this.n = 0;
+    this.n = 0; this.vol = 0; this.wz = [];
     this.setTransform(0, 0, 0, 0, 1);
   }
 
@@ -26,6 +26,7 @@ export class Vox {
 
   // Коробка: x,z — центр, y — низ; w — ширина (x), h — высота, l — длина (z)
   box(x, y, z, w, h, l, color, opt) {
+    this.vol += w * h * l * this.s ** 3;
     const x0 = x - w / 2, x1 = x + w / 2, y0 = y, y1 = y + h, z0 = z - l / 2, z1 = z + l / 2;
     tmpColor.setHex(color);
     const r = tmpColor.r, g = tmpColor.g, b = tmpColor.b;

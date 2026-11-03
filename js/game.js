@@ -1,7 +1,7 @@
 // «Погоня» — главный файл: физика, полиция, монеты, гараж, барабан, интерфейс.
 import * as THREE from '../vendor/three.module.min.js';
-import { MAT } from './vox.js';
-import { CARS, COPS, RARITY, carGeometry, carRating } from './cars.js';
+import { MAT, Vox } from './vox.js';
+import { CARS, COPS, RARITY, carGeometry } from './cars.js';
 import { World, BLK, T, SURF } from './world.js';
 import { Sfx } from './audio.js';
 
@@ -15,6 +15,7 @@ const save = (() => {
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ничего */ } }
 
 const COIN_VALUE = 5, WHEEL_PRICE = 100;
+const HEAVY = { heavy: 1, cannon: 1, crush: 1 };
 const $ = id => document.getElementById(id);
 const sfx = new Sfx(); sfx.setOn(save.sound);
 
@@ -154,9 +155,22 @@ let state = 'garage';
 let player = null, cops = [], coins = [], kits = [];
 let G = null; // текущий заезд
 
-const coinGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.2, 14); coinGeo.rotateX(Math.PI / 2);
-const coinMesh = new THREE.InstancedMesh(coinGeo, new THREE.MeshLambertMaterial({ color: 0xffc928, emissive: 0x7a5200 }), 60);
+// Деньги — зелёная купюра со знаком $
+const billGeo = (() => {
+  const v = new Vox();
+  v.box(0, 0, 0, 1.8, 0.95, 0.08, 0x2f8f46);
+  v.box(0, 0.08, 0, 1.6, 0.79, 0.1, 0x6fcf87);
+  const G = ['..#..', '.####', '#.#..', '.###.', '..#.#', '####.', '..#..'];
+  G.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === '#') v.box(-0.18 + i * 0.09, 0.79 - j * 0.09, 0, 0.09, 0.09, 0.14, 0x1d5e30); }));
+  v.box(-0.6, 0.38, 0, 0.18, 0.18, 0.12, 0x2f8f46); v.box(0.6, 0.38, 0, 0.18, 0.18, 0.12, 0x2f8f46);
+  return v.geometry();
+})();
+const coinMesh = new THREE.InstancedMesh(billGeo, new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x0d3a1a }), 80);
 coinMesh.castShadow = true; coinMesh.frustumCulled = false; coinMesh.count = 0; scene.add(coinMesh);
+// снаряды танка и волна НЛО
+const shellGeo = new THREE.BoxGeometry(0.35, 0.35, 1.2), shellMat = new THREE.MeshBasicMaterial({ color: 0xffe082 });
+const empRing = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 48), new THREE.MeshBasicMaterial({ color: 0x5eead4, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
+empRing.rotation.x = -Math.PI / 2; empRing.visible = false; scene.add(empRing);
 const kitMesh = (() => {
   const g = new THREE.Group();
   const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 1.0), new THREE.MeshLambertMaterial({ color: 0x2ecc71, emissive: 0x0b4d26 }));
@@ -169,15 +183,17 @@ function newRun() {
   for (const c of cops) c.remove(); cops = [];
   if (player) player.remove();
   coins = []; kits = []; debris.clear(); glow.clear();
+  if (G && G.shells) for (const sh of G.shells) scene.remove(sh.mesh);
+  empRing.visible = false;
   world.clear();
   const def = CARS.find(c => c.id === save.sel) || CARS[0];
   player = new Car(def, false);
   player.x = T / 2; player.z = 30; player.h = Math.PI;
   player.vx = 0; player.vz = -8;
   world.update(player.x, player.z, true);
-  G = { t: 0, score: 0, coins: 0, wrecks: 0, stars: 1, spawnT: 2.5, coinT: 0, kitT: 12, shake: 0, dieT: 0, cause: '', camX: player.x, camZ: player.z, look: new THREE.Vector3(player.x, 0, player.z) };
+  G = { t: 0, score: 0, coins: 0, wrecks: 0, stars: 1, spawnT: 2.5, coinT: 3, kitT: 12, bonusDone: new Set(), trail: [], trailT: 0, shells: [], cd: 2, emp: -1, shake: 0, dieT: 0, cause: '', camX: player.x, camZ: player.z, look: new THREE.Vector3(player.x, 0, player.z) };
   camPos.set(player.x + 30, 63, player.z + 37); camLook.set(player.x, 0, player.z);
-  for (let i = 0; i < 16; i++) spawnCoins(true);
+  for (let i = 0; i < 2; i++) spawnCoins(true);
   state = 'play';
   save.runs++; persist();
   showScreen('hud');
@@ -252,7 +268,7 @@ function kill(c, cause) {
   c.vx *= 0.3; c.vz *= 0.3; c.wreckT = 0;
   if (c.cop) {
     G.wrecks++; G.score += c.def.score;
-    toast(`+${c.def.score}  ${c.def.name} ${cause === 'sink' ? 'утонул' : 'разбит'}!`);
+    toast(`+${c.def.score}`);
   } else {
     G.cause = cause; G.dieT = 0; state = 'dying';
   }
@@ -266,7 +282,7 @@ function startSink(c) {
 
 function impact(c, j, isStatic) {
   if (!c.alive) return;
-  const heavy = c.def.perk === 'heavy';
+  const heavy = HEAVY[c.def.perk];
   if (c.cop) damage(c, Math.max(0, j - 7) * 3.2);
   else damage(c, Math.max(0, j - 6) * (heavy ? 0.8 : 1.6), 'boom');
   if (j > 5 && (!c.cop || dist2(c, player) < 1600)) {
@@ -311,7 +327,7 @@ function collideStatic(c) {
       const col = world.breakProp(p);
       const sp = c.speed();
       burst(p.x, 1, p.z, col, 7, Math.max(4, sp * 0.4), 0.35);
-      const slow = c.def.perk === 'heavy' ? 0.985 : 0.93;
+      const slow = HEAVY[c.def.perk] ? 0.985 : 0.93;
       c.vx *= slow; c.vz *= slow;
       if (!c.cop || dist2(c, player) < 900) sfx.thud();
       if (!c.cop) G.score += 1;
@@ -341,7 +357,8 @@ function collideCars(list) {
 }
 function hitCar(c, other, j, share) {
   if (!c.alive) return;
-  const frag = c.cop ? 3.4 : (c.def.perk === 'heavy' ? 0.9 : 1.4);
+  if (c.cop && other === player && player.alive && player.def.perk === 'crush') { c.body.scale.y = 0.35; kill(c, 'boom'); return; }
+  const frag = c.cop ? 3.4 : (HEAVY[c.def.perk] ? 0.9 : 1.4);
   let dmg = Math.max(0, j - 3) * frag * 2 * share;
   if (c.cop && !other.cop) dmg *= 1.25;
   damage(c, dmg, 'boom');
@@ -378,6 +395,7 @@ function spawnCop() {
 
 function copAI(c, dt) {
   const p = player;
+  if (c.stun > 0) { c.stun -= dt; for (const l of c.lights) l.visible = false; drive(c, 0, 0, dt); return; }
   const dx0 = p.x - c.x, dz0 = p.z - c.z, dist = Math.hypot(dx0, dz0);
   const lead = clamp(dist / 22, 0, 1.1) * (p.alive ? 1 : 0);
   const tx = p.x + p.vx * lead - c.x, tz = p.z + p.vz * lead - c.z;
@@ -397,37 +415,47 @@ function copAI(c, dt) {
   drive(c, steer, throttle, dt);
 }
 
-// ================= монеты и аптечки =================
+// ================= деньги и аптечки =================
+// Купюры редкие: несколько штук вокруг игрока + «денежные места» (золотые площадки) на карте
 function spawnCoins(initial) {
-  const a = Math.random() * Math.PI * 2, d = initial ? R(14, 70) : R(45, 80);
-  const alongX = Math.random() < 0.5;
-  let [x, z] = World.snapRoad(player.x + Math.sin(a) * d, player.z + Math.cos(a) * d, alongX);
-  const n = 3 + Math.floor(Math.random() * 3), lane = R(-3, 3);
-  for (let i = 0; i < n; i++) {
-    const cx = alongX ? x + i * 4 : x + lane, cz = alongX ? z + lane : z + i * 4;
-    if (coins.length < 60 && !world.solidAt(cx, cz, 1)) coins.push({ x: cx, z: cz, ph: Math.random() * 6 });
+  for (let tries = 0; tries < 10; tries++) {
+    const a = Math.random() * Math.PI * 2, d = initial ? R(20, 50) : R(40, 85);
+    const x = player.x + Math.sin(a) * d, z = player.z + Math.cos(a) * d;
+    if (!world.blockAt(x, z) || world.solidAt(x, z, 1.5) || world.surface(x, z) === 'ice') continue;
+    coins.push({ x, z, ph: Math.random() * 6 });
+    return;
   }
 }
 const _cm = new THREE.Matrix4(), _cq = new THREE.Quaternion(), _cp = new THREE.Vector3(), _cs = new THREE.Vector3(1, 1, 1), _cy = new THREE.Vector3(0, 1, 0);
 function updateCoins(dt) {
   G.coinT -= dt;
-  if (coins.length < 22 && G.coinT <= 0) { spawnCoins(false); G.coinT = 0.6; }
+  if (coins.filter(c => !c.bonus).length < 4 && G.coinT <= 0) { spawnCoins(false); G.coinT = R(2.5, 5); }
+  for (const b of world.blocks.values()) {
+    if (!b.bonus || G.bonusDone.has(b.k)) continue;
+    G.bonusDone.add(b.k);
+    const { x, z } = b.bonus;
+    coins.push({ x, z, ph: 0, bonus: true });
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; coins.push({ x: x + Math.sin(a) * 3.2, z: z + Math.cos(a) * 3.2, ph: a, bonus: true }); }
+    for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2 + 0.3; coins.push({ x: x + Math.sin(a) * 6, z: z + Math.cos(a) * 6, ph: a, bonus: true }); }
+  }
   coins = coins.filter(c => {
     const d2 = (c.x - player.x) ** 2 + (c.z - player.z) ** 2;
-    if (d2 > 110 * 110) return false;
+    if (d2 > (c.bonus ? 170 : 110) ** 2) return false;
     if (player.alive && d2 < (player.r + 1.4) ** 2) {
       G.coins += COIN_VALUE; save.coins += COIN_VALUE; sfx.coin();
-      for (let i = 0; i < 6; i++) glow.add({ x: c.x, y: 1.2, z: c.z, vx: R(-3, 3), vy: R(3, 7), vz: R(-3, 3), s: 0.25, t: 0, life: 0.5, c: 0xffe066, rx: 3, ry: 3 });
+      for (let i = 0; i < 6; i++) glow.add({ x: c.x, y: 1.2, z: c.z, vx: R(-3, 3), vy: R(3, 7), vz: R(-3, 3), s: 0.25, t: 0, life: 0.5, c: 0x8ef0a8, rx: 3, ry: 3 });
       return false;
     }
     return true;
   });
   const t = G.t;
-  coins.forEach((c, i) => {
-    _cq.setFromAxisAngle(_cy, t * 3 + c.ph); _cp.set(c.x, 1.3 + Math.sin(t * 4 + c.ph) * 0.2, c.z);
+  const n = Math.min(coins.length, 80);
+  for (let i = 0; i < n; i++) {
+    const c = coins[i];
+    _cq.setFromAxisAngle(_cy, t * 2.5 + c.ph); _cp.set(c.x, 0.9 + Math.sin(t * 4 + c.ph) * 0.2, c.z);
     _cm.compose(_cp, _cq, _cs); coinMesh.setMatrixAt(i, _cm);
-  });
-  coinMesh.count = coins.length; coinMesh.instanceMatrix.needsUpdate = true;
+  }
+  coinMesh.count = n; coinMesh.instanceMatrix.needsUpdate = true;
   // аптечка
   G.kitT -= dt;
   if (!kits.length && G.kitT <= 0) {
@@ -438,11 +466,73 @@ function updateCoins(dt) {
   kits = kits.filter(k => {
     const d2 = (k.x - player.x) ** 2 + (k.z - player.z) ** 2;
     if (d2 > 120 * 120) return false;
-    if (player.alive && d2 < (player.r + 1.4) ** 2) { player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.4); sfx.heal(); toast('Ремонт +40%'); return false; }
+    if (player.alive && d2 < (player.r + 1.4) ** 2) { player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.4); sfx.heal(); toast('✚'); return false; }
     return true;
   });
   kitMesh.visible = kits.length > 0;
   if (kits.length) { kitMesh.position.set(kits[0].x, 1.3 + Math.sin(t * 4) * 0.2, kits[0].z); kitMesh.rotation.y = t * 2; }
+}
+
+// ================= способности легендарных машин =================
+function abilities(p, dt) {
+  const perk = p.def.perk;
+  if (perk === 'jet') {
+    // огненный след: копы, наехавшие на него, сгорают
+    G.trailT -= dt;
+    if (G.trailT <= 0 && p.speed() > 8) {
+      G.trailT = 0.05;
+      const x = p.x - Math.sin(p.h) * 3.2, z = p.z - Math.cos(p.h) * 3.2;
+      G.trail.push({ x, z, t: 0 });
+      glow.add({ x, y: 0.4, z, vx: R(-0.5, 0.5), vy: R(0.5, 1.5), vz: R(-0.5, 0.5), g: 0, s: R(0.9, 1.3), grow: -0.4, t: 0, life: 1.1, c: Math.random() < 0.5 ? 0xff9800 : 0xff5722, fade: true, rx: 1, ry: 1 });
+    }
+    G.trail = G.trail.filter(q => (q.t += dt) < 1.1);
+    for (const c of cops) if (c.alive) for (const q of G.trail) if ((c.x - q.x) ** 2 + (c.z - q.z) ** 2 < 5) { kill(c, 'boom'); break; }
+  } else if (perk === 'cannon') {
+    // танк сам стреляет по ближайшему копу впереди
+    G.cd -= dt;
+    if (G.cd <= 0) {
+      let best = null, bd = 45 * 45;
+      for (const c of cops) {
+        if (!c.alive) continue;
+        const d2 = dist2(c, p); if (d2 > bd) continue;
+        if (Math.abs(wrap(Math.atan2(c.x - p.x, c.z - p.z) - p.h)) > 0.75) continue;
+        best = c; bd = d2;
+      }
+      if (best) {
+        G.cd = 1.5;
+        const a = Math.atan2(best.x - p.x, best.z - p.z), sx = p.x + Math.sin(a) * 3.6, sz = p.z + Math.cos(a) * 3.6;
+        const mesh = new THREE.Mesh(shellGeo, shellMat); mesh.position.set(sx, 1.25, sz); mesh.rotation.y = a; scene.add(mesh);
+        G.shells.push({ x: sx, z: sz, vx: Math.sin(a) * 75, vz: Math.cos(a) * 75, life: 0.8, mesh });
+        for (let i = 0; i < 8; i++) glow.add({ x: sx, y: 1.25, z: sz, vx: Math.sin(a) * 6 + R(-3, 3), vy: R(0, 3), vz: Math.cos(a) * 6 + R(-3, 3), g: 0, s: R(0.5, 0.9), grow: 0.5, t: 0, life: 0.25, c: 0xffd54f, rx: 2, ry: 2 });
+        sfx.crash(0.7); G.shake = Math.max(G.shake, 0.3);
+      } else G.cd = 0.25;
+    }
+  } else if (p.def.emp) {
+    // НЛО: волна, которая глушит копов вокруг
+    G.cd -= dt;
+    if (G.cd <= 0) {
+      let any = false; for (const c of cops) if (c.alive && dist2(c, p) < 22 * 22) any = true;
+      if (any) {
+        G.cd = 6; G.emp = 0; sfx.heal();
+        for (const c of cops) if (c.alive && dist2(c, p) < 22 * 22) { c.stun = 3; c.vx *= 0.3; c.vz *= 0.3; }
+      } else G.cd = 0.3;
+    }
+  }
+  if (G.emp >= 0) {
+    G.emp += dt;
+    const k = G.emp / 0.6;
+    empRing.visible = k < 1; empRing.position.set(p.x, 0.5, p.z); empRing.scale.setScalar(1 + k * 21); empRing.material.opacity = 0.75 * (1 - k);
+    if (k >= 1) G.emp = -1;
+  }
+}
+function updateShells(dt) {
+  G.shells = G.shells.filter(sh => {
+    sh.life -= dt; sh.x += sh.vx * dt; sh.z += sh.vz * dt; sh.mesh.position.set(sh.x, 1.25, sh.z);
+    let hit = sh.life <= 0 || world.solidAt(sh.x, sh.z, 0);
+    for (const c of cops) if (c.alive && (c.x - sh.x) ** 2 + (c.z - sh.z) ** 2 < (c.r + 0.6) ** 2) { kill(c, 'boom'); hit = true; break; }
+    if (hit) { if (sh.life > 0) explosion(sh.x, sh.z, 0.5); scene.remove(sh.mesh); return false; }
+    return true;
+  });
 }
 
 // ================= шаг игры =================
@@ -452,7 +542,7 @@ function step(dt) {
   const p = player;
   if (state === 'play') {
     const stars = Math.min(5, 1 + Math.floor(G.t / STAR_TIME));
-    if (stars > G.stars) { G.stars = stars; sfx.star(); toast('★ Розыск растёт!'); }
+    if (stars > G.stars) { G.stars = stars; sfx.star(); toast('★'); }
     G.score += dt;
   }
   G.copMul = 1 + 0.035 * (G.stars - 1);
@@ -463,6 +553,7 @@ function step(dt) {
     const brake = input.l && input.r;
     drive(p, brake ? 0 : steer, brake ? -1 : 1, dt);
     if (p.def.perk === 'regen' && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 3 * dt);
+    abilities(p, dt);
   } else if (!p.sink) {
     p.vx *= Math.exp(-2 * dt); p.vz *= Math.exp(-2 * dt); p.x += p.vx * dt; p.z += p.vz * dt;
   }
@@ -492,6 +583,7 @@ function step(dt) {
     return !gone;
   });
 
+  updateShells(dt);
   updateCoins(dt);
   world.update(p.x, p.z);
 
@@ -507,7 +599,7 @@ function syncCar(c, t, dt) {
   const roll = clamp((c.steer || 0) * c.speed() * 0.006, -0.12, 0.12);
   c.body.rotation.z += (-roll - c.body.rotation.z) * Math.min(1, dt * 8);
   if (c.alive) {
-    if (c.lights.length) { const on = Math.sin(t * 14 + c.phase) > 0; c.lights[0].visible = on; c.lights[1].visible = !on; }
+    if (c.lights.length && !(c.stun > 0)) { const on = Math.sin(t * 14 + c.phase) > 0; c.lights[0].visible = on; c.lights[1].visible = !on; }
     if (c.flash > 0) { c.flash -= dt; c.body.material = MAT.flash; } else c.body.material = MAT.lambert;
     // дым при дрифте и при сильных повреждениях
     if (c.slip > 6 && Math.random() < 0.5 && !c.def.hover) smoke(c.x - Math.sin(c.h) * c.def.len * 0.4, 0.4, c.z - Math.cos(c.h) * c.def.len * 0.4, 0xdddddd, 0.8);
@@ -588,7 +680,7 @@ function gameOver() {
   if (record) save.best = score;
   save.cops += G.wrecks;
   persist();
-  $('o-title').textContent = G.cause === 'sink' ? 'Утонул!' : 'Разбит!';
+  $('o-title').textContent = G.cause === 'sink' ? 'Буль!' : 'Бабах!';
   $('o-score').textContent = score;
   $('o-record').classList.toggle('hidden', !record);
   $('o-best').textContent = save.best;
@@ -615,27 +707,63 @@ function refreshGarage() {
   $('g-coins').textContent = save.coins;
   $('g-best').textContent = save.best;
   $('g-name').textContent = owned ? def.name : '???';
-  const rb = $('g-rarity'); rb.textContent = rar.name; rb.style.background = rar.color;
-  $('g-desc').textContent = owned ? def.desc : 'Выбей эту машину в барабане!';
-  const perk = { regen: '✚ Чинится на ходу', float: '≈ Плавает по воде', heavy: '▲ Тяжёлый таран', jet: '🔥 Реактивная тяга' }[def.perk];
-  $('g-perk').textContent = owned && perk ? perk : '';
-  $('g-perk').classList.toggle('hidden', !(owned && perk));
-  const rt = carRating(def);
-  $('b-spd').style.width = (rt.speed * 100) + '%';
-  $('b-hnd').style.width = (rt.handling * 100) + '%';
-  $('b-arm').style.width = (rt.armor * 100) + '%';
-  $('v-spd').textContent = Math.round(def.spd * 3.6) + ' км/ч';
-  $('v-arm').textContent = def.hp;
-  $('g-play').textContent = owned ? 'ПОЕХАЛИ!' : '🔒 ЗАКРЫТА';
+  const rb = $('g-rarity'); rb.style.background = rar.color; rb.textContent = rar.name;
+  platRing.material.color.set(rar.color);
+  const ab = $('g-ability'); ab.textContent = def.ability || ''; ab.classList.toggle('hidden', !def.ability);
+  $('g-play').textContent = owned ? 'ПОЕХАЛИ!' : '🔒';
   $('g-play').classList.toggle('locked', !owned);
-  $('g-count').textContent = `${save.owned.length} / ${CARS.length}`;
-  const left = lockedCars().length;
-  $('g-wheel').classList.toggle('dim', save.coins < WHEEL_PRICE || !left);
-  $('g-wheel-label').textContent = left ? 'Барабан' : 'Всё открыто!';
+  $('g-count').textContent = `${save.owned.length}/${CARS.length}`;
+  $('g-wheel').classList.toggle('dim', save.coins < WHEEL_PRICE || !lockedCars().length);
   $('g-sound').textContent = save.sound ? '🔊' : '🔇';
   $('g-hq').textContent = save.hq ? 'HD' : 'SD';
-  $('g-dots').innerHTML = CARS.map((c, i) => `<i class="${i === gIndex ? 'cur ' : ''}${save.owned.includes(c.id) ? 'own' : ''}"></i>`).join('');
 }
+
+// ---------- миниатюры машин (для каталога и барабана) ----------
+let thumbR = null, tScene = null, tCam = null;
+const thumbs = new Map();
+function thumb(def, locked) {
+  const key = def.id + (locked ? '-l' : '');
+  if (thumbs.has(key)) return thumbs.get(key);
+  if (!thumbR) {
+    thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    thumbR.setPixelRatio(1); thumbR.setSize(192, 192, false);
+    tScene = new THREE.Scene();
+    tScene.add(new THREE.HemisphereLight(0xe6edff, 0x3a3348, 1.9));
+    const k = new THREE.DirectionalLight(0xffffff, 2.4); k.position.set(6, 10, 8); tScene.add(k);
+    tCam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+  }
+  const m = new THREE.Mesh(carGeometry(def), locked ? silMat : MAT.lambert); m.rotation.y = 0.5; tScene.add(m);
+  const size = Math.max(def.len, def.wid * 1.4, 3.2), d = size * 2.3;
+  tCam.position.set(Math.sin(0.6) * d * 0.88, d * 0.5 + 0.6, Math.cos(0.6) * d * 0.88); tCam.lookAt(0, 0.7, 0);
+  thumbR.render(tScene, tCam); tScene.remove(m);
+  const c = document.createElement('canvas'); c.width = c.height = 192; c.getContext('2d').drawImage(thumbR.domElement, 0, 0);
+  thumbs.set(key, c);
+  return c;
+}
+
+// ---------- каталог ----------
+function openCatalog() {
+  const grid = $('cat-grid'); grid.innerHTML = '';
+  const order = { legend: 0, epic: 1, rare: 2, common: 3 };
+  [...CARS].sort((a, b) => order[a.rarity] - order[b.rarity]).forEach(def => {
+    const owned = save.owned.includes(def.id);
+    const cell = document.createElement('button');
+    cell.className = 'cell' + (owned ? '' : ' lock') + (def.id === save.sel ? ' sel' : '');
+    cell.style.setProperty('--rc', RARITY[def.rarity].color);
+    const img = document.createElement('img'); img.src = thumb(def, !owned).toDataURL(); img.alt = '';
+    cell.appendChild(img);
+    if (owned) { const nm = document.createElement('span'); nm.textContent = def.name.replace(' «Батя»', ''); cell.appendChild(nm); }
+    cell.addEventListener('click', () => {
+      sfx.click();
+      if (!owned) { cell.classList.remove('shake'); void cell.offsetWidth; cell.classList.add('shake'); return; }
+      save.sel = def.id; persist(); gIndex = CARS.indexOf(def); showGarageCar(); refreshGarage(); closeCatalog();
+    });
+    grid.appendChild(cell);
+  });
+  $('cat-count').textContent = `${save.owned.length}/${CARS.length}`;
+  $('catalog').classList.remove('hidden');
+}
+function closeCatalog() { $('catalog').classList.add('hidden'); }
 
 function browse(d) {
   gIndex = (gIndex + d + CARS.length) % CARS.length;
@@ -658,6 +786,8 @@ btn('g-play', () => {
   save.sel = def.id; persist(); sfx.click(); newRun();
 });
 btn('g-wheel', () => openWheel());
+btn('g-cat', () => openCatalog());
+btn('cat-close', () => closeCatalog());
 btn('g-sound', () => { save.sound = !save.sound; sfx.setOn(save.sound); persist(); refreshGarage(); });
 btn('g-hq', () => { save.hq = !save.hq; persist(); applyQuality(); refreshGarage(); });
 btn('h-pause', () => pause());
@@ -681,7 +811,7 @@ function weightedPick(list) {
 
 function openWheel() {
   const locked = lockedCars();
-  if (!locked.length) { toastGarage('Все машины уже открыты!'); return; }
+  if (!locked.length) { toastGarage('✓ ' + CARS.length + '/' + CARS.length); return; }
   const pool = [...locked], segs = [];
   while (segs.length < 8 && pool.length) { const c = weightedPick(pool); segs.push(c); pool.splice(pool.indexOf(c), 1); }
   while (segs.length < 4) segs.push(...segs.slice(0, 4 - segs.length));
@@ -711,11 +841,8 @@ function drawWheel() {
     wx.fillStyle = i % 2 ? '#262b4d' : '#323866'; wx.fill();
     wx.beginPath(); wx.arc(0, 0, r, from, to); wx.arc(0, 0, r - 16, to, from, true); wx.closePath();
     wx.fillStyle = RARITY[seg.rarity].color; wx.fill();
-    wx.save(); wx.rotate((from + to) / 2);
-    const nm = seg.name.replace('Пикап «Батя»', 'Пикап');
-    wx.fillStyle = '#fff'; wx.font = `bold ${Math.min(n > 6 ? 17 : 20, Math.floor(150 / nm.length))}px "Russo One", sans-serif`; wx.textAlign = 'right'; wx.textBaseline = 'middle';
-    wx.fillText(nm, r - 24, 0);
-    wx.restore();
+    const mid = (from + to) / 2, im = thumb(seg, false), sz = n > 6 ? 70 : 84;
+    wx.drawImage(im, Math.cos(mid) * r * 0.6 - sz / 2, Math.sin(mid) * r * 0.6 - sz / 2, sz, sz);
   }
   wx.beginPath(); wx.arc(0, 0, 34, 0, Math.PI * 2); wx.fillStyle = '#ffb020'; wx.fill();
   wx.beginPath(); wx.arc(0, 0, 26, 0, Math.PI * 2); wx.fillStyle = '#1a1d33'; wx.fill();
@@ -725,7 +852,7 @@ function drawWheel() {
 
 function spinWheel() {
   if (!wheel || wheel.spinning || wheel.done) return;
-  if (save.coins < WHEEL_PRICE) { toastWheel(`Нужно ${WHEEL_PRICE} монет. Собирай их в заездах!`); return; }
+  if (save.coins < WHEEL_PRICE) { toastWheel(`$ ${save.coins} / ${WHEEL_PRICE}`); return; }
   save.coins -= WHEEL_PRICE; persist(); updateWheelUi();
   const n = wheel.segs.length;
   const win = weightedPick([...new Set(wheel.segs)]);
@@ -759,7 +886,8 @@ function wheelDone() {
   gIndex = CARS.indexOf(c); showGarageCar();
   $('w-res-name').textContent = c.name;
   const rr = $('w-res-rar'); rr.textContent = RARITY[c.rarity].name; rr.style.background = RARITY[c.rarity].color;
-  $('w-res-desc').textContent = c.desc;
+  $('w-res-desc').textContent = c.ability || '';
+  const ri = $('w-res-img'); ri.innerHTML = ''; ri.appendChild(thumb(c, false));
   $('w-result').classList.remove('hidden');
   $('w-again').classList.toggle('hidden', !(save.coins >= WHEEL_PRICE && lockedCars().length));
 }
@@ -795,4 +923,4 @@ showGarageCar();
 refreshGarage();
 showScreen('garage');
 requestAnimationFrame(frame);
-window.__pogonya = { save, get state() { return state; }, get G() { return G; }, get player() { return player; }, get cops() { return cops; }, newRun, input };
+window.__pogonya = { save, get state() { return state; }, get G() { return G; }, get player() { return player; }, get cops() { return cops; }, get coins() { return coins; }, newRun, input };
