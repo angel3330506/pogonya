@@ -115,17 +115,24 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
 .grid span{font-size:12px;color:var(--mute);font-weight:700}
 .col{display:flex;flex-direction:column;gap:10px;align-items:stretch}
 
-/* ---------- барабан ---------- */
+/* ---------- автомат ---------- */
+.wtop{position:absolute;top:calc(var(--st) + 12px);left:12px;right:12px;display:flex;align-items:center;gap:8px}
+.wtop .sp{flex:1}
+.wbottom{position:absolute;left:0;right:0;bottom:calc(var(--sb) + 26px);text-align:center;padding:0 16px}
+#w-result{animation:rise .4s}
+#w-res-name{font-family:var(--head);font-size:32px}
+#w-res-desc{display:inline-block;margin-top:8px;font-size:14px;font-weight:700;color:#ffe08a;background:rgba(255,176,32,.16);padding:5px 12px;border-radius:10px}
+.wtoast{position:relative;margin:12px auto 0;max-width:260px;background:rgba(239,68,68,.95);padding:10px;border-radius:12px;font-weight:700;opacity:0;transition:.2s;pointer-events:none}
+#arrest{position:fixed;inset:0;pointer-events:none;opacity:0;box-shadow:inset 0 0 90px 30px rgba(255,30,30,.75);transition:opacity .1s}
+#o-need{margin-top:2px;font-weight:800;color:var(--mute)}
 #wheel .box{width:min(400px,100%);position:relative}
 .wheelWrap{position:relative;width:min(320px,78vw);aspect-ratio:1;margin:8px auto 14px}
 #w-canvas{width:100%;height:100%}
 .pointer{position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid #fff;filter:drop-shadow(0 3px 2px rgba(0,0,0,.5))}
-#w-result{position:absolute;inset:0;background:var(--panel);border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;animation:rise .4s}
 @keyframes rise{from{transform:scale(.8);opacity:0}}
 #w-result h3{font-family:var(--head);font-size:22px;color:var(--acc);margin:0}
 #w-res-name{font-family:var(--head);font-size:40px}
 #w-res-desc{color:var(--mute)}
-.wtoast{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(239,68,68,.95);padding:10px;border-radius:12px;font-weight:700;opacity:0;transition:.2s;pointer-events:none}
 .wtoast.show{opacity:1}
 .closeX{position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:12px;background:var(--panel2);font-weight:800}
 </style>
@@ -133,6 +140,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
 <body>
 <canvas id="c"></canvas>
 <div id="touch"></div>
+<div id="arrest"></div>
 
 <!-- гараж -->
 <div id="garage" class="screen">
@@ -188,13 +196,14 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
     <div class="score" id="o-score">0</div>
     <div id="o-record" class="rec hidden">НОВЫЙ РЕКОРД!</div>
     <div class="grid">
-      <div><b><span class="coin"></span> <span id="o-coins">0</span></b><span>деньги</span></div>
-      <div><b id="o-cops">0</b><span>копов разбито</span></div>
-      <div><b id="o-time">0:00</b><span>время</span></div>
-      <div><b id="o-best">0</b><span>рекорд</span></div>
+      <div><b><span class="coin"></span> <span id="o-coins">0</span></b><span>💵</span></div>
+      <div><b id="o-cops">0</b><span>🚓💥</span></div>
+      <div><b id="o-time">0:00</b><span>⏱</span></div>
+      <div><b id="o-best">0</b><span>🏆</span></div>
     </div>
     <div class="col">
       <button class="big" id="o-again">ЕЩЁ РАЗ</button>
+      <div id="o-need" class="hidden"></div>
       <button class="sec" id="o-wheel" style="justify-content:center">🎰 <span class="coin"></span>100</button>
       <button class="sec" id="o-garage" style="justify-content:center">Гараж</button>
     </div>
@@ -212,30 +221,26 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none;touch-
   </div>
 </div>
 
-<!-- барабан -->
-<div id="wheel" class="screen modal hidden">
-  <div class="box">
-    <button class="closeX" id="w-close" aria-label="Закрыть">✕</button>
-    
-    <div class="pill" style="margin-top:4px"><span class="coin"></span><span id="w-coins">0</span></div>
-    <div class="wheelWrap"><canvas id="w-canvas" width="640" height="640"></canvas><div class="pointer"></div></div>
+<!-- призовой автомат -->
+<div id="wheel" class="screen hidden">
+  <div class="top wtop">
+    <span class="pill"><span class="coin"></span><span id="w-coins">0</span></span>
+    <span class="sp"></span>
+    <button class="ico" id="w-close" aria-label="Закрыть">✕</button>
+  </div>
+  <div class="wbottom">
     <button class="big" id="w-spin">🎰 <span class="coin"></span>100</button>
-    <div id="w-toast" class="wtoast"></div>
     <div id="w-result" class="hidden">
-      <div id="w-res-img"></div>
-      <div id="w-res-name"></div>
-      <span class="rar" id="w-res-rar"></span>
+      <div class="nameRow"><span id="w-res-name"></span><span class="rar" id="w-res-rar"></span></div>
       <div id="w-res-desc"></div>
-      <div class="col" style="width:100%;margin-top:10px">
-        <button class="big" id="w-ok">OK</button>
-        <button class="sec" id="w-again" style="justify-content:center">🎰 <span class="coin"></span>100</button>
-      </div>
+      <div class="btnRow" style="margin-top:12px"><button class="big" id="w-ok">OK</button><button class="sec" id="w-again">🎰 <span class="coin"></span>100</button></div>
     </div>
+    <div id="w-toast" class="wtoast"></div>
   </div>
 </div>
 
 <script type="module">
-const APP_VERSION = '2';
+const APP_VERSION = '3';
 import('./js/game.js?v=' + APP_VERSION).catch(e => { document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;display:grid;place-items:center;padding:20px;text-align:center;background:#1a1d33;color:#fff;font:16px sans-serif">Не удалось запустить игру 😕<br><small>' + e.message + '</small></div>'); });
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
 </script>

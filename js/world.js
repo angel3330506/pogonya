@@ -2,6 +2,7 @@
 // Зоны: город, пригород, лес с озёрами, пустыня, снега со льдом.
 import * as THREE from '../vendor/three.module.min.js';
 import { Vox, MAT } from './vox.js';
+import { CARS } from './cars.js';
 
 export const T = 12, BT = 6, BLK = T * BT;
 const LOAD_R = 2;
@@ -193,6 +194,8 @@ export class World {
     const city = biome === 'city';
     // редкое «денежное место»: золотая площадка с кучей купюр и столбом света
     const bonus = Math.abs(bx) + Math.abs(bz) > 1 && hash(bx, bz, 99) < 0.08;
+    // редкая военная база (пригород/лес)
+    const base = !bonus && (biome === 'suburb' || biome === 'forest') && Math.abs(bx) + Math.abs(bz) > 2 && hash(bx, bz, 55) < 0.07;
 
     // дороги
     const asph = biome === 'desert' ? 0x6b6258 : 0x3e4249;
@@ -211,7 +214,7 @@ export class World {
     }
 
     // особая местность: озеро (лес), лёд (снега)
-    if (!bonus && ((biome === 'forest' && R() < 0.5) || (biome === 'snow' && R() < 0.45))) {
+    if (!bonus && !base && ((biome === 'forest' && R() < 0.5) || (biome === 'snow' && R() < 0.45))) {
       const w = 2 + Math.floor(R() * 2), h = 2 + Math.floor(R() * 2);
       const ox = Math.floor(R() * (5 - w + 1)), oz = Math.floor(R() * (5 - h + 1));
       const kind = biome === 'forest' ? 'water' : 'ice';
@@ -272,7 +275,33 @@ export class World {
       beam.position.set(cx, 30, cz); this.scene.add(beam); b.extra.push(beam);
     }
 
-    if (city && bonus) {
+    if (base) {
+      const cx = IX + S / 2, cz = IZ + S / 2;
+      v.box(cx, 0, cz, S - 3, 0.05, S - 3, 0x80857c);
+      for (let i = 0; i < 6; i++) v.box(cx - 18 + i * 7, 0.05, cz + 14, 3, 0.02, 0.4, 0xf2c94c);
+      for (let k = 0; k < 18; k++) {
+        const t = IX + 3.5 + k * 3.05;
+        if (k < 8 || k > 10) { this.addProp(b, 'fence', t, IZ + 2, 0); this.addProp(b, 'fence', t, IZ + S - 2, 0); }
+        this.addProp(b, 'fence', IX + 2, IZ + 3.5 + k * 3.05, Math.PI / 2); this.addProp(b, 'fence', IX + S - 2, IZ + 3.5 + k * 3.05, Math.PI / 2);
+      }
+      for (const hx of [cx - 13, cx + 13]) {
+        const hz = cz - 12;
+        v.box(hx, 0, hz, 18, 7, 14, 0x4a4f55, { noBottom: true }); v.box(hx, 7, hz, 18.4, 0.6, 14.4, 0x5c6269);
+        for (let r = 0; r < 4; r++) v.box(hx, 7.6 + r * 0.5, hz, 18.4 - r * 4, 0.5, 14.4, 0x5c6269);
+        v.box(hx, 0, hz + 7.02, 12, 5.5, 0.08, 0x2c3034);
+        b.solids.push({ b: 1, x0: hx - 9, x1: hx + 9, z0: hz - 7, z1: hz + 7 });
+      }
+      const tx = cx + 20, tz = cz + 20;
+      for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) v.box(tx + dx, 0, tz + dz, 0.25, 7, 0.25, 0x6d4c41);
+      v.box(tx, 7, tz, 3.4, 2.2, 3.4, 0x5d4037); v.box(tx, 9.2, tz, 4, 0.4, 4, 0x3e2723);
+      b.solids.push({ x: tx, z: tz, r: 1.8 });
+      const tank = CARS.find(c => c.id === 'tank');
+      for (const [dx, dz] of [[-14, 9], [-6, 9], [2, 9]]) {
+        v.setTransform(cx + dx, gy + 0.05, cz + dz, Math.PI); tank.build(v); v.setTransform(0, gy, 0);
+        b.solids.push({ x: cx + dx, z: cz + dz, r: 2.6 });
+      }
+      placed.push({ x: cx, z: cz, r: 40 });
+    } else if (city && bonus) {
       for (let i = 0; i < 4; i++) { this.addProp(b, 'lamp', IX + 1.2, IZ + 6 + i * 15, -Math.PI / 2); this.addProp(b, 'lamp', IX + 6 + i * 15, IZ + 1.2, Math.PI); }
       scatter(6, 2, (x, z) => { b.solids.push({ x, z, r: tree(v, x, z, R) + 0.1 }); });
     } else if (city) {
@@ -344,7 +373,13 @@ export class World {
       scatter(6, 1, (x, z) => this.addProp(b, 'bush', x, z, R() * 6));
       scatter(1 + Math.floor(R() * 2), 2.5, (x, z) => b.solids.push(rock(v, x, z, R)));
     } else if (biome === 'desert') {
-      if (R() < 0.3) {
+      if (R() < 0.22) {
+        // ступенчатая пирамида
+        const cx = IX + S / 2 + (R() - 0.5) * 8, cz = IZ + S / 2 + (R() - 0.5) * 8, n = 10;
+        for (let i = 0; i < n; i++) { const w = 30 - i * 3; v.box(cx, i * 1.8, cz, w, 1.8, w, i % 2 ? 0xc98a4b : 0xbf7f40, { noBottom: true, top: 0xd99c5c }); }
+        b.solids.push({ b: 1, x0: cx - 15, x1: cx + 15, z0: cz - 15, z1: cz + 15 });
+        placed.push({ x: cx, z: cz, r: 22 });
+      } else if (R() < 0.35) {
         const cx = IX + 12 + R() * (S - 24), cz = IZ + 12 + R() * (S - 24), w = 10 + R() * 6, l = 10 + R() * 6;
         v.box(cx, 0, cz, w, 3, l, 0xc8763c, { noBottom: true }); v.box(cx, 3, cz, w - 0.6, 2.5, l - 0.6, 0xd9894a, { noBottom: true });
         v.box(cx, 5.5, cz, w - 2, 0.6, l - 2, 0xe39a5c, { noBottom: true });
